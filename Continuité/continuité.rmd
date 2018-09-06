@@ -1,0 +1,118 @@
+---
+runtime: shiny
+output: html_document
+---
+
+``` {r echo=FALSE}
+
+
+shin<-function(){
+require(shiny)
+shinyApp(
+ui=fluidPage(
+  
+  # Application title
+  titlePanel("Discret ou continu, histogrammes ou densités"),
+  
+  # Sidebar with controls to select the random distribution type
+  # and number of observations to generate. Note the use of the
+  # br() element to introduce extra vertical spacing
+  sidebarLayout(position="right",
+                sidebarPanel(
+                  radioButtons("dist", "Distribution",
+                               c("Normale" = "norm",
+                                 "Uniforme" = "unif",
+                                 "Log-normale" = "lnorm",
+                                 "Exponentielle" = "exp")),
+                  br(),
+                  
+                  sliderInput("n",
+                              "Nombre d'observations :",
+                              value = 700,
+                              min = 300,
+                              max = 5000000)
+                  ,
+                  sliderInput("bins",
+                              "Nombre de barres :",
+                              value = 30,
+                              min = 1,
+                              max = 200)
+                ),
+                # Show a tabset that includes a plot, summary, and table view
+                # of the generated distribution
+                mainPanel(
+                  tabsetPanel(type = "tabs",
+                              tabPanel("Plot", plotOutput("plot")),
+                              tabPanel("Summary", verbatimTextOutput("summary"))#,
+                              #tabPanel("Table", tableOutput("table"))
+                  )
+                )
+  )
+),
+server=function(input, output) {
+
+  # Reactive expression to generate the requested distribution.
+  # This is called whenever the inputs change. The output
+  # functions defined below then all use the value computed from
+  # this expression
+  data <- reactive({
+    dist <- switch(input$dist,
+                   norm = rnorm,
+                   unif = runif,
+                   lnorm = rlnorm,
+                   exp = rexp,
+                   rnorm)
+
+    dist(input$n)
+
+  })
+  ddata <- reactive({
+    ddist <- switch(input$dist,
+                   norm = dnorm,
+                   unif = dunif,
+                   lnorm = dlnorm,
+                   exp = dexp,
+                   rnorm)
+
+    data.frame(x=seq(min(data()),max(data()),by=0.01),y=ddist(seq(min(data()),max(data()),by=.01)))
+  })
+
+
+  # Generate a plot of the data. Also uses the inputs to build
+  # the plot label. Note that the dependencies on both the inputs
+  # and the data reactive expression are both tracked, and
+  # all expressions are called in the sequence implied by the
+  # dependency graph
+  output$plot <- renderPlot({
+    dist <- input$dist
+    n <- input$n
+    bins <- seq(min(data()), max(data()), length.out = input$bins+1)
+
+    par(new=TRUE)
+    hist(data(),prob=T,breaks = bins,xlab="",ylab="Prob.",
+         main="", col='cornflowerblue',
+         border = 'white')
+    lines(ddata()$x,ddata()$y, col='red3', lwd=1.5)
+  })
+
+  # Generate a summary of the data
+  output$summary <- renderPrint({
+    summary(ddata())
+  })
+
+  # Generate an HTML table view of the data
+  output$table <- renderTable({
+    data.frame(x=data())
+  })
+
+}
+
+)}
+
+```
+
+
+```{r echo=F}
+shin()
+```
+
